@@ -51,9 +51,6 @@ int main() {
 								camera.setSpeed(cameraSpeed);
 				
 								window.lockCursor();
-								window.onResize([&camera, &window](int width, int height) {
-												camera.setAspectRatio(window.aspectRatio());
-												});
 
 								window.onCheckInput([&camera, &mouseTracking](GLFWwindow* aWin) {
 												mouseTracking.update(aWin);
@@ -117,27 +114,16 @@ int main() {
 								};
 
 								Renderer renderer(materialFactory);
+								window.onResize([&camera, &window, &renderer](int width, int height) {
+												camera.setAspectRatio(window.aspectRatio());
+												renderer.initialize(width, height);
+												});
 
-								renderer.initialize();
+								renderer.initialize(window.size()[0], window.size()[1]);
 								window.runLoop([&] {
 												renderer.clear();
-												if (config.showSolid) {
-																GL_CHECK(glDisable(GL_POLYGON_OFFSET_LINE));
-																GL_CHECK(glPolygonOffset(0.0f, 0.0f));
-																GL_CHECK(glPolygonMode(GL_FRONT_AND_BACK, GL_FILL));
-																renderer.renderScene(scenes[config.currentSceneIdx], camera, RenderOptions{ "solid" });
-												}
-												if (config.showWireframe) {
-																GL_CHECK(glPolygonMode(GL_FRONT_AND_BACK, GL_LINE));
-																GL_CHECK(glEnable(GL_POLYGON_OFFSET_LINE));
-																GL_CHECK(glPolygonOffset(-1.0f, -1.0f));
-																renderer.renderScene(scenes[config.currentSceneIdx], camera, RenderOptions{ "wireframe" });
-												}
-												if (config.showNormals) {
-																GL_CHECK(glEnable(GL_POLYGON_OFFSET_LINE));
-																GL_CHECK(glPolygonOffset(-1.0f, -1.0f));
-																renderer.renderSceneNormals(scenes[config.currentSceneIdx], camera, RenderOptions{ "solid" });
-												}
+												renderer.geometryPass(scenes[config.currentSceneIdx], camera, RenderOptions{ "solid" });
+												renderer.compositingPass();
 												});
 				}
 				catch (ShaderCompilationError& exc) {

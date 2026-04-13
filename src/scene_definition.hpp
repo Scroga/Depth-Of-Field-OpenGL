@@ -25,7 +25,7 @@ constexpr unsigned int DEBUG = 1 << 7;
 
 inline SimpleScene createCubeScene(MaterialFactory& aMaterialFactory, GeometryFactory& aGeometryFactory) {
 				SimpleScene scene;
-				{
+{
 								auto cube = std::make_shared<Cube>();
 
 								cube->setName("CUBE1");
