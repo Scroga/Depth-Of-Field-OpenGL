@@ -31,10 +31,9 @@ void main() {
 	if (mappedShadowCoords.x > 0 && mappedShadowCoords.x < 1
 		&& mappedShadowCoords.y > 0 && mappedShadowCoords.y < 1) {
 		float shadow = texture(u_shadowMap, mappedShadowCoords.xy).x;
-		if (shadow < (mappedShadowCoords.z - 0.0001)) {
+		if (shadow < (mappedShadowCoords.z - 0.000001)) {
 			fragColor = vec4(0.5 * diffuseColor, 1.0);
 		}
-		/* fragColor.r = 1.0; */
 	}
 }
 

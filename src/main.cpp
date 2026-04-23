@@ -40,16 +40,20 @@ int main() {
 								return -1;
 				}
 
-				const glm::vec3 cameraPosition{ 0.0f, 0.0f, 3.0f };
-				const float cameraSpeed{ 0.05f };
+				const glm::vec3 cameraPosition{ 0.0f, 10.0f, 50.0f };
+				const float cameraSpeed{ 0.20f };
 
 				try {
 								auto window = Window(1080, 720, "Depth of field");
 								MouseTracking mouseTracking;
 								Config config;
-								FirstPersonCamera camera(window.aspectRatio(), cameraPosition, glm::vec3(0.0f, 1.0f, 0.0f));
+								FirstPersonCamera camera(window.aspectRatio(), cameraPosition, 0.5f, 1000.0f);
+
 								camera.setSpeed(cameraSpeed);
-				
+								SpotLight light;
+								light.setPosition(glm::vec3(25.0f, 40.0f, 30.0f));
+								light.lookAt(glm::vec3());
+
 								window.lockCursor();
 
 								window.onCheckInput([&camera, &mouseTracking](GLFWwindow* aWin) {
@@ -70,14 +74,14 @@ int main() {
 
 												auto off = mouseTracking.offset();
 												camera.processMouseMovement(off.x, off.y);
-								});
+												});
 
 								window.setKeyCallback([&config, &camera, &cameraPosition](GLFWwindow* aWin, int key, int scancode, int action, int mods) {
 												if (action == GLFW_PRESS) {
 																switch (key) {
 																case GLFW_KEY_R:
 																				camera.setPosition(cameraPosition);
-																				camera.resetRotation();  
+																				camera.resetRotation();
 																				break;
 																case GLFW_KEY_1:
 																				config.currentSceneIdx = 0;
@@ -107,10 +111,8 @@ int main() {
 
 								OGLGeometryFactory geometryFactory;
 
-								std::array<SimpleScene, 3> scenes{
-									createCubeScene(materialFactory, geometryFactory),
-									createInstancedCubesScene(materialFactory, geometryFactory),
-									createMonkeyScene(materialFactory, geometryFactory),
+								std::array<SimpleScene, 1> scenes{
+									createCottageScene(materialFactory, geometryFactory),
 								};
 
 								Renderer renderer(materialFactory);
@@ -119,14 +121,18 @@ int main() {
 												renderer.initialize(width, height);
 												});
 
+
 								renderer.initialize(window.size()[0], window.size()[1]);
 								window.runLoop([&] {
+												renderer.shadowMapPass(scenes[config.currentSceneIdx], light);
+												// renderer.shadowMapPass(scenes[config.currentSceneIdx], camera);
+
 												renderer.clear();
 												renderer.geometryPass(scenes[config.currentSceneIdx], camera, RenderOptions{ "solid" });
-												renderer.compositingPass();
+												renderer.compositingPass(light);
 												});
 				}
-				catch (ShaderCompilationError& exc) {
+				catch (ShaderCompilationError& exc) { 
 								std::cerr
 												<< "Shader compilation error!\n"
 												<< "Shader type: " << exc.shaderTypeName()

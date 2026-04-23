@@ -26,8 +26,6 @@ private:
     const float SPEED = 0.07f;
     const float SENSITIVITY = 0.07f;
     const float ZOOM = 45.0f;
-    const float NEAR_PLANE = 0.1;
-    const float FAR_PLANE = 100.0;
 
     // camera Attributes
     glm::vec3 front;
@@ -50,7 +48,9 @@ public:
     /// constructor with vectors
     FirstPersonCamera(
         float aspRation,
-        glm::vec3 pos = glm::vec3(0.0f, 0.0f, 0.0f), 
+        glm::vec3 pos = glm::vec3(0.0f, 0.0f, 0.0f),
+        float near = 0.1,
+        float far = 100,
         glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f), 
         glm::vec3 f = glm::vec3(0.0f, 0.0f, -1.0f),
         float y = -90.0f,
@@ -63,8 +63,8 @@ public:
         , movementSpeed(SPEED)
         , mouseSensitivity(SENSITIVITY)
         , zoom(ZOOM)
-        , nearPlane(NEAR_PLANE)
-        , farPlane(FAR_PLANE)
+        , nearPlane(near)
+        , farPlane(far)
     {
         position = pos;
         updateCameraVectors();
