@@ -4,14 +4,16 @@ layout(local_size_x = 16, local_size_y = 16) in;
 layout(rgba32f, binding = 0) uniform readonly image2D inputImage;
 layout(rgba32f, binding = 1) uniform writeonly image2D outputImage;
 
-uniform sampler2D s_depthTexture;
+uniform sampler2D u_depthTexture;
 
-const float kernel[9] = float[9](
-     0,  1, 0, 
-     1, -4, 1,
-     0,  1, 0
-     );
+uniform float u_near;
+uniform float u_far;
 
+float linearizeDepth(float depth)
+{
+    float z = depth * 2.0 - 1.0;
+    return (2.0 * u_near * u_far) / (u_far + u_near - z * (u_far - u_near));
+}
 
 void main() {
 	ivec2 texSize = imageSize(inputImage);
@@ -20,24 +22,14 @@ void main() {
 	if (gid.x >= texSize.x || gid.y >= texSize.y) {
 		return; // Skip out-of-bounds work items
 	}
+		vec3 imageColor = imageLoad(inputImage, gid).xyz;
+		
+		vec2 uv = (vec2(gid) + vec2(0.5)) / vec2(texSize);
+		float rawDepth = texture(u_depthTexture, uv).r;
+		float depth = linearizeDepth(rawDepth) / u_far;
 
-	vec4 sum = vec4(0.0);
-	int k = 0;
-
-	// Loop over each kernel element
-	for (int j = -1; j <= 1; j++) {
-		for (int i = -1; i <= 1; i++) {
-			ivec2 kernelPos = ivec2(i, j);
-			ivec2 imagePos = gid + kernelPos;
-
-			// Handle boundary cases by clamping to the edge of the image
-			imagePos = clamp(imagePos, ivec2(0, 0), texSize - ivec2(1, 1));
-
-			vec4 imageColor = imageLoad(inputImage, imagePos);
-			sum += imageColor * kernel[k++];
-		}
-	}
+		imageColor *= 1 - depth;
 
 	// Write the result to the output image
-	imageStore(outputImage, gid, sum);
+	imageStore(outputImage, gid, vec4(imageColor, 1.0));
 }

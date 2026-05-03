@@ -48,10 +48,10 @@ int main() {
 								MouseTracking mouseTracking;
 								Config config;
 								FirstPersonCamera camera(window.aspectRatio(), cameraPosition, 0.5f, 1000.0f);
-
 								camera.setSpeed(cameraSpeed);
-								SpotLight light;
-								light.setPosition(glm::vec3(25.0f, 40.0f, 30.0f));
+
+								SpotLight light(90, 100.0f, 3000.0f);
+								light.setPosition(glm::vec3(-600.0f, 700.0f, 600.0f));
 								light.lookAt(glm::vec3());
 
 								window.lockCursor();
@@ -125,11 +125,10 @@ int main() {
 								renderer.initialize(window.size()[0], window.size()[1]);
 								window.runLoop([&] {
 												renderer.shadowMapPass(scenes[config.currentSceneIdx], light);
-												// renderer.shadowMapPass(scenes[config.currentSceneIdx], camera);
 
 												renderer.clear();
-												renderer.geometryPass(scenes[config.currentSceneIdx], camera, RenderOptions{ "solid" });
-												renderer.compositingPass(light);
+												renderer.geometryPass(scenes[config.currentSceneIdx], camera, light, RenderOptions{ "solid" });
+												renderer.compositingPass(light, camera);
 												});
 				}
 				catch (ShaderCompilationError& exc) { 

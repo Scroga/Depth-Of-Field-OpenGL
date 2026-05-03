@@ -3,7 +3,6 @@
 uniform mat4 u_modelMat;
 uniform mat4 u_viewMat;
 uniform mat4 u_projMat;
-uniform mat3 u_normalMat;
 
 in vec3 in_vert;
 in vec3 in_normal;

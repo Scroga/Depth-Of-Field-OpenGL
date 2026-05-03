@@ -51,6 +51,9 @@ public:
 		}
 	}
 
+	float near() const { return nearPlane; }
+	float far() const { return farPlane; }
+
 private:
 	float fov;          // Field of view in radians
 	float nearPlane;    // Near clipping plane

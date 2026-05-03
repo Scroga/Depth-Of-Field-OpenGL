@@ -5,9 +5,9 @@
 #include "texture.hpp"
 #include "framebuffer.hpp"
 
-class MyFramebuffer {
+class DepthTextureFramebuffer {
 public:
-				MyFramebuffer(
+				DepthTextureFramebuffer(
 								int aWidth,
 								int aHeight,
 								const std::vector<CADescription>& aColorAttachmentDescriptions)
