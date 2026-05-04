@@ -11,8 +11,6 @@ in vec3 normal;
 in vec4 shadowCoords;
 
 out vec4 out_color;
-out vec3 out_normal;
-out vec3 out_position;
 out vec3 out_shadow;
 
 vec2 poissonDisk[16] = vec2[](
@@ -37,9 +35,8 @@ vec2 poissonDisk[16] = vec2[](
 
 void main() {
 	out_color = texture(u_diffuseTexture, texCoords);
-	out_normal = normalize(normal);
-	out_position = position.xyz/position.w;
 
+	vec3 pos = position.xyz/position.w;
 	vec3 projCoords = shadowCoords.xyz / shadowCoords.w;
 	projCoords = projCoords * 0.5 + 0.5;
 
@@ -50,7 +47,7 @@ void main() {
 			projCoords.z >= 0.0 && projCoords.z <= 1.0) {
 
 		float currentDepth = clamp(projCoords.z, 0.0, 1.0);
-		float bias = max(0.0005 * (1.0 - dot(normalize(normal), normalize(u_lightPos - out_position))), 0.0002);
+		float bias = max(0.0005 * (1.0 - dot(normalize(normal), normalize(u_lightPos - pos))), 0.0002);
 		float visibility = 0.0;
 		float texelSize = 1.0 / textureSize(u_shadowMap, 0).x;
 

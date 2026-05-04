@@ -26,12 +26,40 @@ void toggle(const std::string& aToggleName, bool& aToggleValue) {
 				std::cout << aToggleName << ": " << (aToggleValue ? "ON\n" : "OFF\n");
 }
 
-struct Config {
-				int currentSceneIdx = 0;
-				bool showSolid = true;
-				bool showWireframe = false;
-				bool showNormals = false;
-};
+void changeValue(const std::string& name, float& value, float factor) {
+				value += factor;
+				if (value < 0.0f) value = 0.0f;
+				std::cout << name << ": " << value << '\n';
+}
+
+void printInfo() {
+				std::cout
+								<< "\n=== Controls ===\n"
+								<< "Camera movement:\n"
+								<< "  W        - move forward\n"
+								<< "  S        - move backward\n"
+								<< "  A        - move left\n"
+								<< "  D        - move right\n"
+								<< "  Q        - move down\n"
+								<< "  E        - move up\n"
+								<< "  Mouse    - rotate camera\n"
+								<< "\n"
+								<< "Camera:\n"
+								<< "  R        - reset camera position and rotation\n"
+								<< "\n"
+								<< "Depth of field parameters:\n"
+								<< "  Up       - increase focus distance\n"
+								<< "  Down     - decrease focus distance\n"
+								<< "  Right    - increase radius\n"
+								<< "  Left     - decrease radius\n"
+								<< "  >        - increase smoothness\n"
+								<< "  <        - decrease smoothness\n"
+								<< "\n"
+								<< "Debug / info:\n"
+								<< "  F        - toggle debug mode\n"
+								<< "  I        - print this info\n"
+								<< "================\n\n";
+}
 
 int main() {
 				// Initialize GLFW
@@ -40,14 +68,24 @@ int main() {
 								return -1;
 				}
 
+				const float cameraNear = 0.1f;
+				const float cameraFar = 500.0f;
 				const glm::vec3 cameraPosition{ 0.0f, 10.0f, 50.0f };
 				const float cameraSpeed{ 0.20f };
 
 				try {
+								PostprocessingParameters parameters{
+												.distance = 60.0f,
+												.radius = 0.01f,
+												.smoothness = 0.1f,
+												.blurRadius = 5,
+												.gaussianSigma = 2.0f,
+												.debug = false
+								};
+
 								auto window = Window(1080, 720, "Depth of field");
 								MouseTracking mouseTracking;
-								Config config;
-								FirstPersonCamera camera(window.aspectRatio(), cameraPosition, 0.5f, 400.0f);
+								FirstPersonCamera camera(window.aspectRatio(), cameraPosition, cameraNear, cameraFar);
 								camera.setSpeed(cameraSpeed);
 
 								SpotLight light(90, 100.0f, 3000.0f);
@@ -76,30 +114,37 @@ int main() {
 												camera.processMouseMovement(off.x, off.y);
 												});
 
-								window.setKeyCallback([&config, &camera, &cameraPosition](GLFWwindow* aWin, int key, int scancode, int action, int mods) {
+								window.setKeyCallback([&camera, &cameraPosition, &parameters](GLFWwindow* aWin, int key, int scancode, int action, int mods) {												
 												if (action == GLFW_PRESS) {
 																switch (key) {
 																case GLFW_KEY_R:
 																				camera.setPosition(cameraPosition);
 																				camera.resetRotation();
 																				break;
-																case GLFW_KEY_1:
-																				config.currentSceneIdx = 0;
+
+																case GLFW_KEY_F:
+																				toggle("debug", parameters.debug);
 																				break;
-																case GLFW_KEY_2:
-																				config.currentSceneIdx = 1;
+																case GLFW_KEY_I:
+																				printInfo();
 																				break;
-																case GLFW_KEY_3:
-																				config.currentSceneIdx = 2;
+																case GLFW_KEY_UP:
+																				changeValue("Distance", parameters.distance, parameters.distFactor);
 																				break;
-																case GLFW_KEY_Z:
-																				toggle("Show wireframe", config.showWireframe);
+																case GLFW_KEY_DOWN:
+																				changeValue("Distance", parameters.distance, -parameters.distFactor);
 																				break;
-																case GLFW_KEY_C:
-																				toggle("Show normals", config.showNormals);
+																case GLFW_KEY_RIGHT:
+																				changeValue("Radius", parameters.radius, parameters.radiusFactor);
 																				break;
-																case GLFW_KEY_X:
-																				toggle("Show solid", config.showSolid);
+																case GLFW_KEY_LEFT:
+																				changeValue("Radius", parameters.radius, -parameters.radiusFactor);
+																				break;
+																case GLFW_KEY_PERIOD: // This is '>' key
+																				changeValue("Smoothness", parameters.smoothness, parameters.smoothnessFactor);
+																				break;
+																case GLFW_KEY_COMMA: // This is '<' key
+																				changeValue("Smoothness", parameters.smoothness, -parameters.smoothnessFactor);
 																				break;
 																}
 												}
@@ -121,18 +166,18 @@ int main() {
 												renderer.initialize(width, height);
 												});
 
-
+								const int currentSceneIdx = 0;
 								renderer.initialize(window.size()[0], window.size()[1]);
 								window.runLoop([&] {
-												renderer.shadowMapPass(scenes[config.currentSceneIdx], light);
+												renderer.shadowMapPass(scenes[currentSceneIdx], light);
 
 												renderer.clear();
-												renderer.geometryPass(scenes[config.currentSceneIdx], camera, light, RenderOptions{ "solid" });
+												renderer.geometryPass(scenes[currentSceneIdx], camera, light, RenderOptions{ "solid" });
 												renderer.compositingPass(light);
-												renderer.postprocessingPass(camera);
+												renderer.postprocessingPass(camera, parameters);
 												});
 				}
-				catch (ShaderCompilationError& exc) { 
+				catch (ShaderCompilationError& exc) {
 								std::cerr
 												<< "Shader compilation error!\n"
 												<< "Shader type: " << exc.shaderTypeName()

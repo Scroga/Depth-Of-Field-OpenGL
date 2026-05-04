@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <algorithm>
 
 #include "camera.hpp"
 #include "spotlight.hpp"
@@ -29,10 +30,8 @@ protected:
 				IndexedBuffer mQuad;
 };
 
-inline std::vector<CADescription> getColorNormalPositionAttachments() {
+inline std::vector<CADescription> getColorShadowAttachments() {
 				return {
-					{ GL_RGBA, GL_FLOAT, GL_RGBA32F },
-					{ GL_RGBA, GL_FLOAT, GL_RGBA32F },
 					{ GL_RGBA, GL_FLOAT, GL_RGBA32F },
 					{ GL_RGBA, GL_FLOAT, GL_RGBA32F },
 				};
@@ -44,13 +43,25 @@ inline std::vector<CADescription> getSingleColorAttachment() {
 				};
 }
 
+struct PostprocessingParameters {
+public:
+				const float distFactor = 7.0f;
+				const float radiusFactor = 0.01f;
+				const float smoothnessFactor = 0.01f;
+
+				float distance;
+				float radius;
+				float smoothness;
+				int blurRadius;
+				float gaussianSigma;
+				bool debug;
+};
+
 struct Postprocessing {
 				Postprocessing(OGLMaterialFactory& aMaterialFactory)
 				{
 								depthOfFieldProgram = std::static_pointer_cast<OGLShaderProgram>(
-												//aMaterialFactory.getShaderProgram("depth_of_field"));
-												aMaterialFactory.getShaderProgram("blur"));
-
+												aMaterialFactory.getShaderProgram("depth_of_field"));
 				}
 
 				void init(int aWidth, int aHeight) {
@@ -84,10 +95,10 @@ public:
 								GL_CHECK(glClearColor(0.0f, 0.0f, 0.0f, 0.0f));
 
 								mPostprocessing.init(aWidth, aHeight);
-								mFramebuffer = std::make_unique<DepthTextureFramebuffer>(aWidth, aHeight, getColorNormalPositionAttachments());
+								mFramebuffer = std::make_unique<DepthTextureFramebuffer>(aWidth, aHeight, getColorShadowAttachments());
 								mShadowmapFramebuffer = std::make_unique<Framebuffer>(mShadowMapSize.x, mShadowMapSize.y, getSingleColorAttachment());
 								mCompositingParameters = {};
-								mFinalOutputParameters = {{ "u_diffuse", TextureInfo("diffuse", mPostprocessing.finalImage)}};
+								mFinalOutputParameters = { { "u_diffuse", TextureInfo("diffuse", mPostprocessing.finalImage)} };
 				}
 
 				template<typename TScene, typename TLight>
@@ -137,7 +148,7 @@ public:
 
 				void clear() {
 								mFramebuffer->bind();
-								GL_CHECK(glClearColor(0.0f, 0.0f, 0.0f, 0.0f));
+								GL_CHECK(glClearColor(0.4f, 0.6f, 0.8f, 1.0f));
 								GL_CHECK(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
 				}
 
@@ -190,39 +201,35 @@ public:
 				template<typename TLight>
 				void compositingPass(const TLight& aLight) {
 								mCompositingShader->use();
-								mCompositingParameters["u_lightPos"] = aLight.getPosition();
-								mCompositingParameters["u_lightMat"] = aLight.getViewMatrix();
-								mCompositingParameters["u_lightProjMat"] = aLight.getProjectionMatrix();
-
 								mCompositingShader->setMaterialParameters(mCompositingParameters);
+								
+								// u_outputImage
 								GL_CHECK(glBindImageTexture(0, mPostprocessing.inputImage->texture.get(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F));
-
+								// u_diffuse
 								GL_CHECK(glBindImageTexture(1, mFramebuffer->getColorAttachment(0)->texture.get(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F));
+								// u_shadows
 								GL_CHECK(glBindImageTexture(2, mFramebuffer->getColorAttachment(1)->texture.get(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F));
-								GL_CHECK(glBindImageTexture(3, mFramebuffer->getColorAttachment(2)->texture.get(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F));
-								GL_CHECK(glBindImageTexture(4, mFramebuffer->getColorAttachment(3)->texture.get(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F));
 
 								GL_CHECK(glDispatchCompute((mWidth + 15) / 16, (mHeight + 15) / 16, 1));
 								GL_CHECK(glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT));
 				}
 
 				template<typename TCamera>
-				void postprocessingPass(const TCamera& aCamera) {
+				void postprocessingPass(const TCamera& aCamera, const PostprocessingParameters& parameters) {
 								mPostprocessing.depthOfFieldProgram->use();
 								GL_CHECK(glBindImageTexture(0, mPostprocessing.inputImage->texture.get(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F));
 								GL_CHECK(glBindImageTexture(1, mPostprocessing.finalImage->texture.get(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F));
 
 								MaterialParameterValues depthOfFieldParameters;
 								depthOfFieldParameters["u_depthTexture"] = TextureInfo("depthTexture", mFramebuffer->getDepthAttachment());
-								depthOfFieldParameters["u_distance"] = 0.2f;
-								//depthOfFieldParameters["u_radius"] = 0.1f;
-								depthOfFieldParameters["u_smoothness"] = 0.1f;
+								depthOfFieldParameters["u_distance"] = parameters.distance;
+								depthOfFieldParameters["u_radius"] = parameters.radius;
+								depthOfFieldParameters["u_smoothness"] = parameters.smoothness;
 								depthOfFieldParameters["u_near"] = aCamera.near();
 								depthOfFieldParameters["u_far"] = aCamera.far();
-
-								depthOfFieldParameters["u_radius"] = 5;
-								depthOfFieldParameters["u_sigma"] = 5.5f;
-								depthOfFieldParameters["u_blurStrength"] = 1.0f;
+								depthOfFieldParameters["u_blurRadius"] = parameters.blurRadius;
+								depthOfFieldParameters["u_gaussianSigma"] = parameters.gaussianSigma;
+								depthOfFieldParameters["u_debug"] = parameters.debug;
 
 								mPostprocessing.depthOfFieldProgram->setMaterialParameters(depthOfFieldParameters);
 
