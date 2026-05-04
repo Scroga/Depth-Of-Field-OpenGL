@@ -48,7 +48,8 @@ struct Postprocessing {
 				Postprocessing(OGLMaterialFactory& aMaterialFactory)
 				{
 								depthOfFieldProgram = std::static_pointer_cast<OGLShaderProgram>(
-												aMaterialFactory.getShaderProgram("depth_of_field"));
+												//aMaterialFactory.getShaderProgram("depth_of_field"));
+												aMaterialFactory.getShaderProgram("blur"));
 
 				}
 
@@ -87,6 +88,51 @@ public:
 								mShadowmapFramebuffer = std::make_unique<Framebuffer>(mShadowMapSize.x, mShadowMapSize.y, getSingleColorAttachment());
 								mCompositingParameters = {};
 								mFinalOutputParameters = {{ "u_diffuse", TextureInfo("diffuse", mPostprocessing.finalImage)}};
+				}
+
+				template<typename TScene, typename TLight>
+				void shadowMapPass(const TScene& aScene, const TLight& aLight) {
+								GL_CHECK(glEnable(GL_DEPTH_TEST));
+
+								mShadowmapFramebuffer->bind();
+
+								GL_CHECK(glViewport(0, 0, mShadowMapSize.x, mShadowMapSize.y));
+								GL_CHECK(glClearColor(1.0f, 1.0f, 1.0f, 1.0f));
+								GL_CHECK(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
+
+								mShadowmapFramebuffer->setDrawBuffers();
+								auto projection = aLight.getProjectionMatrix();
+								auto view = aLight.getViewMatrix();
+
+								MaterialParameterValues fallbackParameters;
+								fallbackParameters["u_projMat"] = projection;
+								fallbackParameters["u_viewMat"] = view;
+								fallbackParameters["u_near"] = aLight.near();
+								fallbackParameters["u_far"] = aLight.far();
+
+								std::vector<RenderData> renderData;
+								RenderOptions renderOptions = { "solid" };
+								for (const auto& object : aScene.getObjects()) {
+												auto data = object.getRenderData(renderOptions);
+												if (data) {
+																renderData.push_back(data.value());
+												}
+								}
+
+								mShadowMapShader->use();
+								for (const auto& data : renderData) {
+												const glm::mat4 modelMat = data.modelMat;
+												const OGLGeometry& geometry = static_cast<const OGLGeometry&>(data.mGeometry);
+
+												fallbackParameters["u_modelMat"] = modelMat;
+
+												mShadowMapShader->setMaterialParameters(fallbackParameters, {});
+
+												geometry.bind();
+												geometry.draw();
+								}
+
+								mShadowmapFramebuffer->unbind();
 				}
 
 				void clear() {
@@ -141,8 +187,8 @@ public:
 								mFramebuffer->unbind();
 				}
 
-				template<typename TLight, typename TCamera>
-				void compositingPass(const TLight& aLight, const TCamera& aCamera) {
+				template<typename TLight>
+				void compositingPass(const TLight& aLight) {
 								mCompositingShader->use();
 								mCompositingParameters["u_lightPos"] = aLight.getPosition();
 								mCompositingParameters["u_lightMat"] = aLight.getViewMatrix();
@@ -158,72 +204,34 @@ public:
 
 								GL_CHECK(glDispatchCompute((mWidth + 15) / 16, (mHeight + 15) / 16, 1));
 								GL_CHECK(glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT));
+				}
 
-								//***********************************************************************
+				template<typename TCamera>
+				void postprocessingPass(const TCamera& aCamera) {
 								mPostprocessing.depthOfFieldProgram->use();
 								GL_CHECK(glBindImageTexture(0, mPostprocessing.inputImage->texture.get(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F));
 								GL_CHECK(glBindImageTexture(1, mPostprocessing.finalImage->texture.get(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F));
 
 								MaterialParameterValues depthOfFieldParameters;
 								depthOfFieldParameters["u_depthTexture"] = TextureInfo("depthTexture", mFramebuffer->getDepthAttachment());
+								depthOfFieldParameters["u_distance"] = 0.2f;
+								//depthOfFieldParameters["u_radius"] = 0.1f;
+								depthOfFieldParameters["u_smoothness"] = 0.1f;
 								depthOfFieldParameters["u_near"] = aCamera.near();
 								depthOfFieldParameters["u_far"] = aCamera.far();
+
+								depthOfFieldParameters["u_radius"] = 5;
+								depthOfFieldParameters["u_sigma"] = 5.5f;
+								depthOfFieldParameters["u_blurStrength"] = 1.0f;
 
 								mPostprocessing.depthOfFieldProgram->setMaterialParameters(depthOfFieldParameters);
 
 								GL_CHECK(glDispatchCompute((mWidth + 15) / 16, (mHeight + 15) / 16, 1));
 								GL_CHECK(glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT));
 
-								//***********************************************************************
-
 								GL_CHECK(glDisable(GL_DEPTH_TEST));
 								GL_CHECK(glClearColor(0.0f, 0.0f, 0.0f, 0.0f));
 								mQuadRenderer.render(*mFinalOutputShader, mFinalOutputParameters);
-				}
-
-				template<typename TScene, typename TLight>
-				void shadowMapPass(const TScene& aScene, const TLight& aLight) {
-								GL_CHECK(glEnable(GL_DEPTH_TEST));
-
-								mShadowmapFramebuffer->bind();
-
-								GL_CHECK(glViewport(0, 0, mShadowMapSize.x, mShadowMapSize.y));
-								GL_CHECK(glClearColor(1.0f, 1.0f, 1.0f, 1.0f));
-								GL_CHECK(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
-
-								mShadowmapFramebuffer->setDrawBuffers();
-								auto projection = aLight.getProjectionMatrix();
-								auto view = aLight.getViewMatrix();
-
-								MaterialParameterValues fallbackParameters;
-								fallbackParameters["u_projMat"] = projection;
-								fallbackParameters["u_viewMat"] = view;
-								fallbackParameters["u_near"] = aLight.near();
-								fallbackParameters["u_far"] = aLight.far();
-
-								std::vector<RenderData> renderData;
-								RenderOptions renderOptions = { "solid" };
-								for (const auto& object : aScene.getObjects()) {
-												auto data = object.getRenderData(renderOptions);
-												if (data) {
-																renderData.push_back(data.value());
-												}
-								}
-
-								mShadowMapShader->use();
-								for (const auto& data : renderData) {
-												const glm::mat4 modelMat = data.modelMat;
-												const OGLGeometry& geometry = static_cast<const OGLGeometry&>(data.mGeometry);
-
-												fallbackParameters["u_modelMat"] = modelMat;
-
-												mShadowMapShader->setMaterialParameters(fallbackParameters, {});
-
-												geometry.bind();
-												geometry.draw();
-								}
-
-								mShadowmapFramebuffer->unbind();
 				}
 
 protected:

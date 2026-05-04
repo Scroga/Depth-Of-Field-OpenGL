@@ -6,8 +6,13 @@ layout(rgba32f, binding = 1) uniform writeonly image2D outputImage;
 
 uniform sampler2D u_depthTexture;
 
+uniform float u_distance;
+uniform float u_radius;
+uniform float u_smoothness;
+
 uniform float u_near;
 uniform float u_far;
+
 
 float linearizeDepth(float depth)
 {
@@ -20,7 +25,7 @@ void main() {
 	ivec2 gid = ivec2(gl_GlobalInvocationID.xy);
 
 	if (gid.x >= texSize.x || gid.y >= texSize.y) {
-		return; // Skip out-of-bounds work items
+		return;
 	}
 		vec3 imageColor = imageLoad(inputImage, gid).xyz;
 		
@@ -28,8 +33,10 @@ void main() {
 		float rawDepth = texture(u_depthTexture, uv).r;
 		float depth = linearizeDepth(rawDepth) / u_far;
 
-		imageColor *= 1 - depth;
+		float dist = abs(depth - clamp(u_distance, u_near, u_far));
+		float intensity = smoothstep(u_radius, u_radius + u_smoothness, dist);
 
-	// Write the result to the output image
-	imageStore(outputImage, gid, vec4(imageColor, 1.0));
+		vec3 outputColor = mix(imageColor, vec3(0.1, 0.2, 0.3), intensity);
+
+	imageStore(outputImage, gid, vec4(outputColor, 1.0));
 }

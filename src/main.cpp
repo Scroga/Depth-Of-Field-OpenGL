@@ -47,7 +47,7 @@ int main() {
 								auto window = Window(1080, 720, "Depth of field");
 								MouseTracking mouseTracking;
 								Config config;
-								FirstPersonCamera camera(window.aspectRatio(), cameraPosition, 0.5f, 1000.0f);
+								FirstPersonCamera camera(window.aspectRatio(), cameraPosition, 0.5f, 400.0f);
 								camera.setSpeed(cameraSpeed);
 
 								SpotLight light(90, 100.0f, 3000.0f);
@@ -128,7 +128,8 @@ int main() {
 
 												renderer.clear();
 												renderer.geometryPass(scenes[config.currentSceneIdx], camera, light, RenderOptions{ "solid" });
-												renderer.compositingPass(light, camera);
+												renderer.compositingPass(light);
+												renderer.postprocessingPass(camera);
 												});
 				}
 				catch (ShaderCompilationError& exc) { 
