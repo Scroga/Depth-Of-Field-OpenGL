@@ -19,6 +19,9 @@ This program implements a real-time depth of field effect in OpenGL. The scene i
 
 
 ## Dependencies
+### CMake
+Folders such as `resources/` and `shaders/` are automatically copied into appropriate directory on each application build, so there is no need to copy them manually.
+
 ### Loading library
 
 To use modern OpenGL you need [loading library](https://www.khronos.org/opengl/wiki/OpenGL_Loading_Library), which will set the function pointers for the API calls and load vendor extensions.
