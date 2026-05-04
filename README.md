@@ -1,8 +1,24 @@
-# gl_tutorials
-Short demos and tutorials for OpenGL and other graphic libraries.
+# Depth of field
+## Author: Ilia Riabko
+
+This program implements a real-time depth of field effect in OpenGL. The scene is rendered into an off-screen framebuffer that stores color data and a depth texture. After rendering shadows and combining the scene color with shadow information, a compute shader applies post-processing using the depth texture. Pixels outside the selected focus distance and radius are blurred, while pixels inside the focus area remain sharp. The focus parameters can be adjusted interactively during runtime.
+
+## Controls
+| Control          | Action                             |
+| ---------------- | ---------------------------------- |
+| **W / S**        | Move camera forward / backward     |
+| **A / D**        | Move camera left / right           |
+| **Q / E**        | Move camera down / up              |
+| **Mouse**        | Rotate camera                      |
+| **R**            | Reset camera position and rotation |
+| **Up / Down**    | Increase / decrease focus distance |
+| **Left / Right** | Decrease / increase focus radius   |
+| **< / >**        | Decrease / increase smoothness     |
+| **F**            | Toggle debug mode                  |
+| **I**            | Print controls information         |
+
 
 ## Dependencies
-
 ### Loading library
 
 To use modern OpenGL you need [loading library](https://www.khronos.org/opengl/wiki/OpenGL_Loading_Library), which will set the function pointers for the API calls and load vendor extensions.
